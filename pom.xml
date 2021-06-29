@@ -117,6 +117,7 @@
     </developer>
   </developers>
 
+<!--
   <distributionManagement>
     <snapshotRepository>
       <id>ossrh</id>
@@ -127,6 +128,7 @@
       <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
     </repository>
   </distributionManagement>
+-->
 
   <issueManagement>
     <system>Github</system>
@@ -239,12 +241,12 @@
                 <version>${errorprone.version}</version>
                 <repositoryType>MAIN</repositoryType>
               </DynamicDependency>
-              <DynamicDependency>
-                <groupId>org.apache.maven.surefire</groupId>
-                <artifactId>surefire-junit-platform</artifactId>
-                <version>${maven-surefire-plugin.version}</version>
-                <repositoryType>PLUGIN</repositoryType>
-              </DynamicDependency>
+<!--              <DynamicDependency>-->
+<!--                <groupId>org.apache.maven.surefire</groupId>-->
+<!--                <artifactId>surefire-junit-platform</artifactId>-->
+<!--                <version>${maven-surefire-plugin.version}</version>-->
+<!--                <repositoryType>PLUGIN</repositoryType>-->
+<!--              </DynamicDependency>-->
             </dynamicDependencies>
           </configuration>
         </plugin>
@@ -314,10 +316,10 @@
       </plugin>
 
 
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>${maven-surefire-plugin.version}</version>
-      </plugin>
+<!--      <plugin>-->
+<!--        <artifactId>maven-surefire-plugin</artifactId>-->
+<!--        <version>${maven-surefire-plugin.version}</version>-->
+<!--      </plugin>-->
 
       <plugin>
         <artifactId>maven-failsafe-plugin</artifactId>
@@ -389,77 +391,77 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>com.mycila</groupId>
-        <artifactId>license-maven-plugin</artifactId>
-        <version>${license-maven-plugin.version}</version>
-        <configuration>
-          <skip>${license.skip}</skip>
-          <header>${main.basedir}/src/etc/header.txt</header>
-          <mapping>
-            <!-- Don't use javadoc style as this makes code formatters break it by adding tags! -->
-            <java>SLASHSTAR_STYLE</java>
-            <!-- build-bin/docker -->
-            <configure_docker>SCRIPT_STYLE</configure_docker>
-            <configure_docker_push>SCRIPT_STYLE</configure_docker_push>
-            <docker_arch>SCRIPT_STYLE</docker_arch>
-            <docker_args>SCRIPT_STYLE</docker_args>
-            <docker_block_on_health>SCRIPT_STYLE</docker_block_on_health>
-            <docker_build>SCRIPT_STYLE</docker_build>
-            <docker_push>SCRIPT_STYLE</docker_push>
-            <docker_test_image>SCRIPT_STYLE</docker_test_image>
-            <!-- build-bin/git -->
-            <login_git>SCRIPT_STYLE</login_git>
-            <version_from_trigger_tag>SCRIPT_STYLE</version_from_trigger_tag>
-            <!-- build-bin/gpg -->
-            <configure_gpg>SCRIPT_STYLE</configure_gpg>
-            <!-- build-bin/maven -->
-            <maven_build>SCRIPT_STYLE</maven_build>
-            <maven_build_or_unjar>SCRIPT_STYLE</maven_build_or_unjar>
-            <maven_deploy>SCRIPT_STYLE</maven_deploy>
-            <maven_go_offline>SCRIPT_STYLE</maven_go_offline>
-            <maven_release>SCRIPT_STYLE</maven_release>
-            <maven_opts>SCRIPT_STYLE</maven_opts>
-            <maven_unjar>SCRIPT_STYLE</maven_unjar>
-            <!-- docker/periodic/** -->
-            <zipkin-dependencies-today>SCRIPT_STYLE</zipkin-dependencies-today>
-            <zipkin-dependencies-yesterday>SCRIPT_STYLE</zipkin-dependencies-yesterday>
-            <!-- docker/bin -->
-            <start-zipkin-dependencies>SCRIPT_STYLE</start-zipkin-dependencies>
-          </mapping>
-          <excludes>
-            <exclude>.docker.env</exclude>
-            <exclude>.gitignore</exclude>
-            <exclude>.editorconfig</exclude>
-            <exclude>.mvn/**</exclude>
-            <exclude>mvnw*</exclude>
-            <exclude>etc/header.txt</exclude>
-            <exclude>**/.idea/**</exclude>
-            <exclude>LICENSE</exclude>
-            <exclude>**/*.md</exclude>
-            <exclude>src/test/resources/**</exclude>
-            <exclude>src/main/resources/**</exclude>
-            <exclude>.dockerignore</exclude>
-            <exclude>build-bin/*</exclude>
-          </excludes>
-          <strictCheck>true</strictCheck>
-        </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>com.mycila</groupId>
-            <artifactId>license-maven-plugin-git</artifactId>
-            <version>${license-maven-plugin.version}</version>
-          </dependency>
-        </dependencies>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>compile</phase>
-          </execution>
-        </executions>
-      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>com.mycila</groupId>-->
+<!--        <artifactId>license-maven-plugin</artifactId>-->
+<!--        <version>${license-maven-plugin.version}</version>-->
+<!--        <configuration>-->
+<!--          <skip>${license.skip}</skip>-->
+<!--          <header>${main.basedir}/src/etc/header.txt</header>-->
+<!--          <mapping>-->
+<!--            &lt;!&ndash; Don't use javadoc style as this makes code formatters break it by adding tags! &ndash;&gt;-->
+<!--            <java>SLASHSTAR_STYLE</java>-->
+<!--            &lt;!&ndash; build-bin/docker &ndash;&gt;-->
+<!--            <configure_docker>SCRIPT_STYLE</configure_docker>-->
+<!--            <configure_docker_push>SCRIPT_STYLE</configure_docker_push>-->
+<!--            <docker_arch>SCRIPT_STYLE</docker_arch>-->
+<!--            <docker_args>SCRIPT_STYLE</docker_args>-->
+<!--            <docker_block_on_health>SCRIPT_STYLE</docker_block_on_health>-->
+<!--            <docker_build>SCRIPT_STYLE</docker_build>-->
+<!--            <docker_push>SCRIPT_STYLE</docker_push>-->
+<!--            <docker_test_image>SCRIPT_STYLE</docker_test_image>-->
+<!--            &lt;!&ndash; build-bin/git &ndash;&gt;-->
+<!--            <login_git>SCRIPT_STYLE</login_git>-->
+<!--            <version_from_trigger_tag>SCRIPT_STYLE</version_from_trigger_tag>-->
+<!--            &lt;!&ndash; build-bin/gpg &ndash;&gt;-->
+<!--            <configure_gpg>SCRIPT_STYLE</configure_gpg>-->
+<!--            &lt;!&ndash; build-bin/maven &ndash;&gt;-->
+<!--            <maven_build>SCRIPT_STYLE</maven_build>-->
+<!--            <maven_build_or_unjar>SCRIPT_STYLE</maven_build_or_unjar>-->
+<!--            <maven_deploy>SCRIPT_STYLE</maven_deploy>-->
+<!--            <maven_go_offline>SCRIPT_STYLE</maven_go_offline>-->
+<!--            <maven_release>SCRIPT_STYLE</maven_release>-->
+<!--            <maven_opts>SCRIPT_STYLE</maven_opts>-->
+<!--            <maven_unjar>SCRIPT_STYLE</maven_unjar>-->
+<!--            &lt;!&ndash; docker/periodic/** &ndash;&gt;-->
+<!--            <zipkin-dependencies-today>SCRIPT_STYLE</zipkin-dependencies-today>-->
+<!--            <zipkin-dependencies-yesterday>SCRIPT_STYLE</zipkin-dependencies-yesterday>-->
+<!--            &lt;!&ndash; docker/bin &ndash;&gt;-->
+<!--            <start-zipkin-dependencies>SCRIPT_STYLE</start-zipkin-dependencies>-->
+<!--          </mapping>-->
+<!--          <excludes>-->
+<!--            <exclude>.docker.env</exclude>-->
+<!--            <exclude>.gitignore</exclude>-->
+<!--            <exclude>.editorconfig</exclude>-->
+<!--            <exclude>.mvn/**</exclude>-->
+<!--            <exclude>mvnw*</exclude>-->
+<!--            <exclude>etc/header.txt</exclude>-->
+<!--            <exclude>**/.idea/**</exclude>-->
+<!--            <exclude>LICENSE</exclude>-->
+<!--            <exclude>**/*.md</exclude>-->
+<!--            <exclude>src/test/resources/**</exclude>-->
+<!--            <exclude>src/main/resources/**</exclude>-->
+<!--            <exclude>.dockerignore</exclude>-->
+<!--            <exclude>build-bin/*</exclude>-->
+<!--          </excludes>-->
+<!--          <strictCheck>true</strictCheck>-->
+<!--        </configuration>-->
+<!--        <dependencies>-->
+<!--          <dependency>-->
+<!--            <groupId>com.mycila</groupId>-->
+<!--            <artifactId>license-maven-plugin-git</artifactId>-->
+<!--            <version>${license-maven-plugin.version}</version>-->
+<!--          </dependency>-->
+<!--        </dependencies>-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <goals>-->
+<!--              <goal>check</goal>-->
+<!--            </goals>-->
+<!--            <phase>compile</phase>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--      </plugin>-->
     </plugins>
 
     <resources>

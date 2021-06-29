@@ -13,6 +13,9 @@
  */
 package zipkin2.dependencies.elasticsearch;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static zipkin2.internal.DateUtil.midnightUTC;
+
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.MalformedJsonException;
 import java.io.IOException;
@@ -37,10 +40,8 @@ import scala.Tuple2;
 import zipkin2.DependencyLink;
 import zipkin2.codec.SpanBytesDecoder;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static zipkin2.internal.DateUtil.midnightUTC;
-
 public final class ElasticsearchDependenciesJob {
+
   static final Charset UTF_8 = Charset.forName("UTF-8");
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchDependenciesJob.class);
@@ -55,7 +56,7 @@ public final class ElasticsearchDependenciesJob {
     String hosts = getEnv("ES_HOSTS", "127.0.0.1");
     String username = getEnv("ES_USERNAME", null);
     String password = getEnv("ES_PASSWORD", null);
-
+    String esQuery = "{\"match_all\":{} }";
     final Map<String, String> sparkProperties = new LinkedHashMap<>();
 
     Builder() {
@@ -64,15 +65,15 @@ public final class ElasticsearchDependenciesJob {
       sparkProperties.put("es.index.read.missing.as.empty", "true");
       sparkProperties.put("es.nodes.wan.only", getEnv("ES_NODES_WAN_ONLY", "false"));
       sparkProperties.put(
-          "es.net.ssl.keystore.location",
-          getSystemPropertyAsFileResource("javax.net.ssl.keyStore"));
+        "es.net.ssl.keystore.location",
+        getSystemPropertyAsFileResource("javax.net.ssl.keyStore"));
       sparkProperties.put(
-          "es.net.ssl.keystore.pass", System.getProperty("javax.net.ssl.keyStorePassword", ""));
+        "es.net.ssl.keystore.pass", System.getProperty("javax.net.ssl.keyStorePassword", ""));
       sparkProperties.put(
-          "es.net.ssl.truststore.location",
-          getSystemPropertyAsFileResource("javax.net.ssl.trustStore"));
+        "es.net.ssl.truststore.location",
+        getSystemPropertyAsFileResource("javax.net.ssl.trustStore"));
       sparkProperties.put(
-          "es.net.ssl.truststore.pass", System.getProperty("javax.net.ssl.trustStorePassword", ""));
+        "es.net.ssl.truststore.pass", System.getProperty("javax.net.ssl.trustStorePassword", ""));
     }
 
     // local[*] master lets us run & test the job locally without setting a Spark cluster
@@ -84,13 +85,17 @@ public final class ElasticsearchDependenciesJob {
     // By default the job only works on traces whose first timestamp is today
     long day = midnightUTC(System.currentTimeMillis());
 
-    /** When set, this indicates which jars to distribute to the cluster. */
+    /**
+     * When set, this indicates which jars to distribute to the cluster.
+     */
     public Builder jars(String... jars) {
       this.jars = jars;
       return this;
     }
 
-    /** The index prefix to use when generating daily index names. Defaults to "zipkin" */
+    /**
+     * The index prefix to use when generating daily index names. Defaults to "zipkin"
+     */
     public Builder index(String index) {
       this.index = checkNotNull(index, "index");
       return this;
@@ -102,31 +107,48 @@ public final class ElasticsearchDependenciesJob {
       return this;
     }
 
-    /** username used for basic auth. Needed when Shield or X-Pack security is enabled */
+    /**
+     * username used for basic auth. Needed when Shield or X-Pack security is enabled
+     */
     public Builder username(String username) {
       this.username = username;
       return this;
     }
 
-    /** password used for basic auth. Needed when Shield or X-Pack security is enabled */
+    /**
+     * password used for basic auth. Needed when Shield or X-Pack security is enabled
+     */
     public Builder password(String password) {
       this.password = password;
       return this;
     }
 
-    /** Day (in epoch milliseconds) to process dependencies for. Defaults to today. */
+    /**
+     * Day (in epoch milliseconds) to process dependencies for. Defaults to today.
+     */
     public Builder day(long day) {
       this.day = midnightUTC(day);
       return this;
     }
 
-    /** Extending more configuration of spark. */
+    public Builder esQuery(String esQuery) {
+      if (esQuery != null && !esQuery.equals("")) {
+        this.esQuery = esQuery;
+      }
+      return this;
+    }
+
+    /**
+     * Extending more configuration of spark.
+     */
     public Builder conf(Map<String, String> conf) {
       sparkProperties.putAll(conf);
       return this;
     }
 
-    /** Ensures that logging is setup. Particularly important when in cluster mode. */
+    /**
+     * Ensures that logging is setup. Particularly important when in cluster mode.
+     */
     public Builder logInitializer(Runnable logInitializer) {
       this.logInitializer = checkNotNull(logInitializer, "logInitializer");
       return this;
@@ -145,20 +167,31 @@ public final class ElasticsearchDependenciesJob {
   final String index;
   final String dateStamp;
   final SparkConf conf;
-  @Nullable final Runnable logInitializer;
+  final String esQuery;
+  @Nullable
+  final Runnable logInitializer;
 
   ElasticsearchDependenciesJob(Builder builder) {
     this.index = builder.index;
+    this.esQuery = builder.esQuery;
     String dateSeparator = getEnv("ES_DATE_SEPARATOR", "-");
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd".replace("-", dateSeparator));
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     this.dateStamp = df.format(new Date(builder.day));
     this.conf = new SparkConf(true).setMaster(builder.sparkMaster).setAppName(getClass().getName());
-    if (builder.jars != null) conf.setJars(builder.jars);
-    if (builder.username != null) conf.set("es.net.http.auth.user", builder.username);
-    if (builder.password != null) conf.set("es.net.http.auth.pass", builder.password);
+    if (builder.jars != null) {
+      conf.setJars(builder.jars);
+    }
+    if (builder.username != null) {
+      conf.set("es.net.http.auth.user", builder.username);
+    }
+    if (builder.password != null) {
+      conf.set("es.net.http.auth.pass", builder.password);
+    }
     conf.set("es.nodes", parseHosts(builder.hosts));
-    if (builder.hosts.contains("https")) conf.set("es.net.ssl", "true");
+    if (builder.hosts.contains("https")) {
+      conf.set("es.net.ssl", "true");
+    }
     for (Map.Entry<String, String> entry : builder.sparkProperties.entrySet()) {
       conf.set(entry.getKey(), entry.getValue());
       log.debug("Spark conf properties: {}={}", entry.getKey(), entry.getValue());
@@ -170,45 +203,48 @@ public final class ElasticsearchDependenciesJob {
     run( // single-type index
       index + ":span-" + dateStamp + "/span",
       index + ":dependency-" + dateStamp + "/dependency",
-      SpanBytesDecoder.JSON_V2);
+      SpanBytesDecoder.JSON_V2, esQuery);
 
     run( // single-type index with ES 7+
       index + "-span-" + dateStamp,
       index + "-dependency-" + dateStamp,
-      SpanBytesDecoder.JSON_V2);
+      SpanBytesDecoder.JSON_V2, esQuery);
 
     log.info("Done");
   }
 
-  void run(String spanResource, String dependencyLinkResource, SpanBytesDecoder decoder) {
-    log.info("Processing spans from {}", spanResource);
+  void run(String spanResource, String dependencyLinkResource, SpanBytesDecoder decoder,
+    String esQuery) {
+    log.info("Processing spans from {},{}", spanResource,esQuery);
     JavaSparkContext sc = new JavaSparkContext(conf);
     try {
       JavaRDD<Map<String, Object>> links =
-          JavaEsSpark.esJsonRDD(sc, spanResource)
-              .groupBy(JSON_TRACE_ID)
-              .flatMapValues(new TraceIdAndJsonToDependencyLinks(logInitializer, decoder))
-              .values()
-              .mapToPair(l -> Tuple2.apply(Tuple2.apply(l.parent(), l.child()), l))
-              .reduceByKey((l, r) -> DependencyLink.newBuilder()
-                .parent(l.parent())
-                .child(l.child())
-                .callCount(l.callCount() + r.callCount())
-                .errorCount(l.errorCount() + r.errorCount())
-                .build())
-              .values()
-              .map(DEPENDENCY_LINK_JSON);
+        JavaEsSpark.esJsonRDD(sc, spanResource, esQuery)
+          .groupBy(JSON_TRACE_ID)
+          .flatMapValues(new TraceIdAndJsonToDependencyLinks(logInitializer, decoder))
+          .values()
+          .mapToPair(l -> Tuple2.apply(Tuple2.apply(l.parent(), l.child()), l))
+          .reduceByKey((l, r) -> DependencyLink.newBuilder()
+            .parent(l.parent())
+            .child(l.child())
+            .callCount(l.callCount() + r.callCount())
+            .errorCount(l.errorCount() + r.errorCount())
+            .build())
+          .values()
+          .map(DEPENDENCY_LINK_JSON);
 
       if (links.isEmpty()) {
         log.info("No dependency links could be processed from spans in index {}", spanResource);
       } else {
         log.info("Saving dependency links to {}", dependencyLinkResource);
         JavaEsSpark.saveToEs(
-            links,
-            dependencyLinkResource,
-            Collections.singletonMap("es.mapping.id", "id")); // allows overwriting the link
+          links,
+          dependencyLinkResource,
+          Collections.singletonMap("es.mapping.id", "id")); // allows overwriting the link
+        log.info("Saving dependency links end to {}", dependencyLinkResource);
       }
     } finally {
+      log.info("Processing stop spans from {},{}", spanResource,esQuery);
       sc.stop();
     }
   }
@@ -257,7 +293,8 @@ public final class ElasticsearchDependenciesJob {
   // defining what could be lambdas here until we update to minimum JRE 8 or retrolambda works.
   static final Function<Tuple2<String, String>, String> JSON_TRACE_ID = new Function<Tuple2<String, String>, String>() {
     /** returns the lower 64 bits of the trace ID */
-    @Override public String call(Tuple2<String, String> pair) throws IOException {
+    @Override
+    public String call(Tuple2<String, String> pair) throws IOException {
       JsonReader reader = new JsonReader(new StringReader(pair._2));
       reader.beginObject();
       while (reader.hasNext()) {
@@ -272,7 +309,8 @@ public final class ElasticsearchDependenciesJob {
       throw new MalformedJsonException("no traceId in " + pair);
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
       return "pair._2.traceId";
     }
   };

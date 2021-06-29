@@ -21,23 +21,43 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.LinkedHashMap;
 import java.util.TimeZone;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import zipkin2.dependencies.elasticsearch.ElasticsearchDependenciesJob;
 import zipkin2.dependencies.mysql.MySQLDependenciesJob;
 
 public final class ZipkinDependenciesJob {
-  /** Runs with defaults, starting today */
+
+  private static final Logger log = LoggerFactory.getLogger(ZipkinDependenciesJob.class);
+
+  /**
+   * Runs with defaults, starting today
+   */
   public static void main(String[] args) throws UnsupportedEncodingException {
     String[] jarPath = pathToUberJar();
-    long day = args.length == 1 ? parseDay(args[0]) : System.currentTimeMillis();
+
+    String zipkinLogLevel = System.getenv("ZIPKIN_LOG_LEVEL");
+    if (zipkinLogLevel == null) {
+      zipkinLogLevel = "INFO";
+    }
+    Runnable logInitializer = LogInitializer.create(zipkinLogLevel);
+    logInitializer.run(); // Ensures local log commands emit
+
+
+//    long day = args.length == 1 ? parseDay(args[0]) : System.currentTimeMillis();
+    long day = System.currentTimeMillis();
+    String esQuery = null;
+    log.info("ZipkinDependenciesJob args:{}", args.length);
+    if (args.length == 2) {
+      log.info("ZipkinDependenciesJob args:{},{}", args[0], args[1]);
+      day = parseDay(args[0]);
+      esQuery = args[1];
+    }
+
     String storageType = System.getenv("STORAGE_TYPE");
     if (storageType == null) {
       throw new IllegalArgumentException("STORAGE_TYPE not set");
     }
-
-    String zipkinLogLevel = System.getenv("ZIPKIN_LOG_LEVEL");
-    if (zipkinLogLevel == null) zipkinLogLevel = "INFO";
-    Runnable logInitializer = LogInitializer.create(zipkinLogLevel);
-    logInitializer.run(); // Ensures local log commands emit
 
     final LinkedHashMap<String, String> sparkConf = new LinkedHashMap<>();
     String sparkConfRaw = System.getenv("SPARK_CONF");
@@ -74,6 +94,7 @@ public final class ZipkinDependenciesJob {
           .logInitializer(logInitializer)
           .jars(jarPath)
           .day(day)
+          .esQuery(esQuery)
           .conf(sparkConf)
           .build()
           .run();
@@ -87,7 +108,7 @@ public final class ZipkinDependenciesJob {
   static String[] pathToUberJar() throws UnsupportedEncodingException {
     URL jarFile = ZipkinDependenciesJob.class.getProtectionDomain().getCodeSource().getLocation();
     return new File(jarFile.getPath()).isDirectory() ? null
-      : new String[] {URLDecoder.decode(jarFile.getPath(), "UTF-8")};
+      : new String[]{URLDecoder.decode(jarFile.getPath(), "UTF-8")};
   }
 
   static long parseDay(String formattedDate) {
