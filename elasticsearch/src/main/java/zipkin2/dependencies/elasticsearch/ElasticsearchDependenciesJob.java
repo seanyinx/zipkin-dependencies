@@ -231,6 +231,7 @@ public final class ElasticsearchDependenciesJob {
   private long millisUTC() {
     Calendar day = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     day.setTimeInMillis(System.currentTimeMillis());
+    day.add(Calendar.HOUR, -1);
     return day.getTimeInMillis();
   }
 
