@@ -20,6 +20,7 @@ import java.io.StringReader;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -41,7 +42,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static zipkin2.internal.DateUtil.midnightUTC;
 
 public final class ElasticsearchDependenciesJob {
+
   static final Charset UTF_8 = Charset.forName("UTF-8");
+  private static final long FIVE_MINUTES_IN_MILLIS = 5L * 60_000L;
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchDependenciesJob.class);
 
@@ -144,6 +147,7 @@ public final class ElasticsearchDependenciesJob {
 
   final String index;
   final String dateStamp;
+  final long timestamp;
   final SparkConf conf;
   @Nullable final Runnable logInitializer;
 
@@ -153,6 +157,7 @@ public final class ElasticsearchDependenciesJob {
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd".replace("-", dateSeparator));
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     this.dateStamp = df.format(new Date(builder.day));
+    this.timestamp = millisUTC();
     this.conf = new SparkConf(true).setMaster(builder.sparkMaster).setAppName(getClass().getName());
     if (builder.jars != null) conf.setJars(builder.jars);
     if (builder.username != null) conf.set("es.net.http.auth.user", builder.username);
@@ -186,6 +191,21 @@ public final class ElasticsearchDependenciesJob {
     try {
       JavaRDD<Map<String, Object>> links =
           JavaEsSpark.esJsonRDD(sc, spanResource)
+              .filter(pair -> {
+                JsonReader reader = new JsonReader(new StringReader(pair._2));
+                reader.beginObject();
+                while (reader.hasNext()) {
+                  String nextName = reader.nextName();
+                  if (nextName.equals("timestamp_millis")) {
+                    long timestamp = reader.nextLong();
+                    return timestamp < this.timestamp && timestamp >= this.timestamp - FIVE_MINUTES_IN_MILLIS;
+                  } else {
+                    reader.skipValue();
+                  }
+                }
+                log.warn("no timestamp_millis in " + pair);
+                return false;
+              })
               .groupBy(JSON_TRACE_ID)
               .flatMapValues(new TraceIdAndJsonToDependencyLinks(logInitializer, decoder))
               .values()
@@ -211,6 +231,12 @@ public final class ElasticsearchDependenciesJob {
     } finally {
       sc.stop();
     }
+  }
+
+  private long millisUTC() {
+    Calendar day = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    day.setTimeInMillis(System.currentTimeMillis());
+    return day.getTimeInMillis();
   }
 
   /**
