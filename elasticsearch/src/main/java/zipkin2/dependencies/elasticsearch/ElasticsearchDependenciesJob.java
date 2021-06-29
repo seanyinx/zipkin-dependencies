@@ -46,7 +46,6 @@ public final class ElasticsearchDependenciesJob {
   static final Charset UTF_8 = Charset.forName("UTF-8");
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchDependenciesJob.class);
-  private final TimestampSpanFilter timestampSpanFilter;
 
   public static Builder builder() {
     return new Builder();
@@ -153,8 +152,7 @@ public final class ElasticsearchDependenciesJob {
 
   final String index;
   final String dateStamp;
-  final long timestamp;
-  final long timeRange;
+  final String timeRangeQuery;
   final SparkConf conf;
   @Nullable final Runnable logInitializer;
 
@@ -164,8 +162,9 @@ public final class ElasticsearchDependenciesJob {
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd".replace("-", dateSeparator));
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     this.dateStamp = df.format(new Date(builder.day));
-    this.timestamp = millisUTC();
-    this.timeRange = builder.minutes * 60_000L;
+    long timestamp = millisUTC();
+    this.timeRangeQuery = String.format("{\"range\":{\"timestamp_millis\":{\"lt\":%d,\"gte\":%d}}}",
+      timestamp, timestamp - builder.minutes * 60_000L);
     this.conf = new SparkConf(true).setMaster(builder.sparkMaster).setAppName(getClass().getName());
     if (builder.jars != null) conf.setJars(builder.jars);
     if (builder.username != null) conf.set("es.net.http.auth.user", builder.username);
@@ -177,7 +176,6 @@ public final class ElasticsearchDependenciesJob {
       log.debug("Spark conf properties: {}={}", entry.getKey(), entry.getValue());
     }
     this.logInitializer = builder.logInitializer;
-    this.timestampSpanFilter = new TimestampSpanFilter(timestamp, timeRange);
   }
 
   public void run() {
@@ -199,8 +197,7 @@ public final class ElasticsearchDependenciesJob {
     JavaSparkContext sc = new JavaSparkContext(conf);
     try {
       JavaRDD<Map<String, Object>> links =
-          JavaEsSpark.esJsonRDD(sc, spanResource)
-              .filter(timestampSpanFilter)
+          JavaEsSpark.esJsonRDD(sc, spanResource, timeRangeQuery)
               .groupBy(JSON_TRACE_ID)
               .flatMapValues(new TraceIdAndJsonToDependencyLinks(logInitializer, decoder))
               .values()
@@ -298,34 +295,4 @@ public final class ElasticsearchDependenciesJob {
       return "pair._2.traceId";
     }
   };
-
-  static final class TimestampSpanFilter implements Function<Tuple2<String, String>, Boolean> {
-
-    private static final Logger log = LoggerFactory.getLogger(TimestampSpanFilter.class);
-    private final long timestamp;
-    private final long timeRange;
-
-    private TimestampSpanFilter(long timestamp, long timeRange) {
-      this.timestamp = timestamp;
-      this.timeRange = timeRange;
-    }
-
-    @Override
-    public Boolean call(Tuple2<String, String> pair) throws Exception {
-      JsonReader reader = new JsonReader(new StringReader(pair._2));
-      reader.beginObject();
-      while (reader.hasNext()) {
-        String nextName = reader.nextName();
-        if (nextName.equals("timestamp_millis")) {
-          long timestamp = reader.nextLong();
-          return timestamp < this.timestamp
-            && timestamp >= this.timestamp - timeRange;
-        } else {
-          reader.skipValue();
-        }
-      }
-      log.warn("no timestamp_millis in " + pair);
-      return false;
-    }
-  }
 }
