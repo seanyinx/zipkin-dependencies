@@ -46,6 +46,7 @@ public final class ElasticsearchDependenciesJob {
   static final Charset UTF_8 = Charset.forName("UTF-8");
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchDependenciesJob.class);
+  private final TimestampSpanFilter timestampSpanFilter;
 
   public static Builder builder() {
     return new Builder();
@@ -176,6 +177,7 @@ public final class ElasticsearchDependenciesJob {
       log.debug("Spark conf properties: {}={}", entry.getKey(), entry.getValue());
     }
     this.logInitializer = builder.logInitializer;
+    this.timestampSpanFilter = new TimestampSpanFilter(timestamp, timeRange);
   }
 
   public void run() {
@@ -198,21 +200,7 @@ public final class ElasticsearchDependenciesJob {
     try {
       JavaRDD<Map<String, Object>> links =
           JavaEsSpark.esJsonRDD(sc, spanResource)
-              .filter(pair -> {
-                JsonReader reader = new JsonReader(new StringReader(pair._2));
-                reader.beginObject();
-                while (reader.hasNext()) {
-                  String nextName = reader.nextName();
-                  if (nextName.equals("timestamp_millis")) {
-                    long timestamp = reader.nextLong();
-                    return timestamp < this.timestamp && timestamp >= this.timestamp - timeRange;
-                  } else {
-                    reader.skipValue();
-                  }
-                }
-                log.warn("no timestamp_millis in " + pair);
-                return false;
-              })
+              .filter(timestampSpanFilter)
               .groupBy(JSON_TRACE_ID)
               .flatMapValues(new TraceIdAndJsonToDependencyLinks(logInitializer, decoder))
               .values()
@@ -309,4 +297,34 @@ public final class ElasticsearchDependenciesJob {
       return "pair._2.traceId";
     }
   };
+
+  static final class TimestampSpanFilter implements Function<Tuple2<String, String>, Boolean> {
+
+    private static final Logger log = LoggerFactory.getLogger(TimestampSpanFilter.class);
+    private final long timestamp;
+    private final long timeRange;
+
+    private TimestampSpanFilter(long timestamp, long timeRange) {
+      this.timestamp = timestamp;
+      this.timeRange = timeRange;
+    }
+
+    @Override
+    public Boolean call(Tuple2<String, String> pair) throws Exception {
+      JsonReader reader = new JsonReader(new StringReader(pair._2));
+      reader.beginObject();
+      while (reader.hasNext()) {
+        String nextName = reader.nextName();
+        if (nextName.equals("timestamp_millis")) {
+          long timestamp = reader.nextLong();
+          return timestamp < this.timestamp
+            && timestamp >= this.timestamp - timeRange;
+        } else {
+          reader.skipValue();
+        }
+      }
+      log.warn("no timestamp_millis in " + pair);
+      return false;
+    }
+  }
 }
