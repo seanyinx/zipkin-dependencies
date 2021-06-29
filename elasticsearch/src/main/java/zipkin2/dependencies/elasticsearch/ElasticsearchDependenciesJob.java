@@ -44,7 +44,6 @@ import static zipkin2.internal.DateUtil.midnightUTC;
 public final class ElasticsearchDependenciesJob {
 
   static final Charset UTF_8 = Charset.forName("UTF-8");
-  private static final long FIVE_MINUTES_IN_MILLIS = 5L * 60_000L;
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchDependenciesJob.class);
 
@@ -86,6 +85,7 @@ public final class ElasticsearchDependenciesJob {
 
     // By default the job only works on traces whose first timestamp is today
     long day = midnightUTC(System.currentTimeMillis());
+    long minutes;
 
     /** When set, this indicates which jars to distribute to the cluster. */
     public Builder jars(String... jars) {
@@ -135,6 +135,11 @@ public final class ElasticsearchDependenciesJob {
       return this;
     }
 
+    public Builder minutes(long minutes) {
+      this.minutes = minutes;
+      return this;
+    }
+
     public ElasticsearchDependenciesJob build() {
       return new ElasticsearchDependenciesJob(this);
     }
@@ -148,6 +153,7 @@ public final class ElasticsearchDependenciesJob {
   final String index;
   final String dateStamp;
   final long timestamp;
+  final long timeRange;
   final SparkConf conf;
   @Nullable final Runnable logInitializer;
 
@@ -158,6 +164,7 @@ public final class ElasticsearchDependenciesJob {
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     this.dateStamp = df.format(new Date(builder.day));
     this.timestamp = millisUTC();
+    this.timeRange = builder.minutes * 60_000L;
     this.conf = new SparkConf(true).setMaster(builder.sparkMaster).setAppName(getClass().getName());
     if (builder.jars != null) conf.setJars(builder.jars);
     if (builder.username != null) conf.set("es.net.http.auth.user", builder.username);
@@ -198,7 +205,7 @@ public final class ElasticsearchDependenciesJob {
                   String nextName = reader.nextName();
                   if (nextName.equals("timestamp_millis")) {
                     long timestamp = reader.nextLong();
-                    return timestamp < this.timestamp && timestamp >= this.timestamp - FIVE_MINUTES_IN_MILLIS;
+                    return timestamp < this.timestamp && timestamp >= this.timestamp - timeRange;
                   } else {
                     reader.skipValue();
                   }
