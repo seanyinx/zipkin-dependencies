@@ -20,7 +20,6 @@ import java.io.StringReader;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -85,7 +84,7 @@ public final class ElasticsearchDependenciesJob {
 
     // By default the job only works on traces whose first timestamp is today
     long day = midnightUTC(System.currentTimeMillis());
-    long minutes;
+    long seconds;
 
     /** When set, this indicates which jars to distribute to the cluster. */
     public Builder jars(String... jars) {
@@ -135,8 +134,8 @@ public final class ElasticsearchDependenciesJob {
       return this;
     }
 
-    public Builder minutes(long minutes) {
-      this.minutes = minutes;
+    public Builder seconds(long seconds) {
+      this.seconds = seconds;
       return this;
     }
 
@@ -162,9 +161,8 @@ public final class ElasticsearchDependenciesJob {
     SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd".replace("-", dateSeparator));
     df.setTimeZone(TimeZone.getTimeZone("UTC"));
     this.dateStamp = df.format(new Date(builder.day));
-    long timestamp = millisUTC();
     this.timeRangeQuery = String.format("{\"range\":{\"timestamp_millis\":{\"lt\":%d,\"gte\":%d}}}",
-      timestamp, timestamp - builder.minutes * 60_000L);
+      builder.day + builder.seconds * 1000L, builder.day);
     this.conf = new SparkConf(true).setMaster(builder.sparkMaster).setAppName(getClass().getName());
     if (builder.jars != null) conf.setJars(builder.jars);
     if (builder.username != null) conf.set("es.net.http.auth.user", builder.username);
@@ -223,13 +221,6 @@ public final class ElasticsearchDependenciesJob {
     } finally {
       sc.stop();
     }
-  }
-
-  private long millisUTC() {
-    Calendar day = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-    day.setTimeInMillis(System.currentTimeMillis());
-    day.add(Calendar.HOUR, -1);
-    return day.getTimeInMillis();
   }
 
   /**
