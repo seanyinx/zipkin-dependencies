@@ -29,7 +29,7 @@ public final class ZipkinDependenciesJob {
   public static void main(String[] args) throws UnsupportedEncodingException {
     String[] jarPath = pathToUberJar();
     long day = args.length >= 1 ? parseDay(args[0]) : System.currentTimeMillis();
-    long minutes = args.length >= 2 ? parseDay(args[1]) : 5L;
+    long minutes = args.length >= 2 ? Long.parseLong(args[1]) : 5L;
     String storageType = System.getenv("STORAGE_TYPE");
     if (storageType == null) {
       throw new IllegalArgumentException("STORAGE_TYPE not set");
